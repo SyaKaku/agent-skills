@@ -1,24 +1,21 @@
 ---
 name: orca-dispatch
 description: >-
-  Supervise Orca work delegation from a coordinator to Codex or Kimi workers:
-  create self-contained work orders, dispatch them, handle decision gates,
-  wait for worker completion, verify results, and clean up safely. Use whenever
-  the user asks to delegate, dispatch, start or supervise workers, select a
-  worker/model/effort, manage a task DAG, or collect delegated results. Orca
-  监督式派单：用户要求派单、发工单、起 worker、选择模型或 effort、监督任务 DAG
-  或回收结果时使用；纯所有权交接则路由到 Orca handoff。
-compatibility: >-
-  Requires Orca CLI with skills, status, terminal, task, dispatch, event, and
-  reply capabilities; Codex CLI and/or Kimi CLI; and Git when worktree
-  isolation is used. Exact models and non-interactive flags depend on the
-  installed CLI, account, and repository policy.
+  Supervise tracked Orca dispatches from a coordinator to Codex or Kimi workers:
+  write work orders, dispatch tasks, handle gates, wait, verify results, and
+  clean up. Use when the user explicitly asks to supervise, monitor, wait for
+  or collect worker results, coordinate a DAG or ask/reply flow, use decision
+  gates, or explicitly invokes $orca-dispatch. Do not use for an ownership
+  handoff that starts another worker/model/effort without waiting for results;
+  use orca-cli.
 ---
 
 # Orca 派单
 
-此 skill 面向 Orca coordinator。若本机没有兼容的 Orca CLI，不要模拟 task、
-dispatch 或生命周期事件；应报告缺失的依赖和可执行的安装或配置前置条件。
+此 skill 面向 Orca coordinator，需要具备 terminal 与 orchestration 能力的 Orca
+CLI、Codex CLI 和/或 Kimi CLI；使用独立 worktree 时还需要 Git。具体模型、参数
+和能力取决于已安装 CLI、账号及仓库策略。缺少兼容依赖时不得模拟 task、dispatch
+或生命周期事件；报告缺失项和可执行的安装或配置前置条件。
 
 ## 选择 worker
 
@@ -33,8 +30,8 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 
 结构化选择器优先于自然语言；未指定 worker 时使用 Codex。未指定 model 或 effort
 时，按对应 worker 手册选择满足任务风险和复杂度的最低充分档位。选择器冲突、模型
-与 worker 不匹配或运行环境不支持指定配置时，用 `decision_gate` 请用户裁决。
-仅加载所选手册：
+与 worker 不匹配或运行环境不支持指定配置时，派单前直接询问用户。仅加载所选
+手册：
 
 - Codex（默认）：[`references/codex-worker.md`](references/codex-worker.md)
 - Kimi：[`references/kimi-worker.md`](references/kimi-worker.md)
@@ -43,10 +40,19 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 
 - **handoff**：用户要转交所有权且无需监督结果。按当前 `orca-cli` handoff
   流程发送后结束，不创建 task。
-- **Tier 0 — local**：简单问答、一次只读查询、单行或机械小改，由 coordinator 完成。
 - **Tier 1 — work order**：目标、范围、约束和验证方式已明确，可交给一个 worker。
+  用户显式调用 `$orca-dispatch` 或要求派单并回收结果时，即使任务简单也不得改为
+  coordinator 本地执行。
 - **Tier 2 — freeze spec**：写工作单仍会迫使 worker 做产品或架构决策。Coordinator
   先澄清并落盘规格、验收标准和依赖，再拆成 work order 或 DAG。
+
+## 裁决与 gate
+
+- 派单前缺少用户选择时直接询问，不为尚未创建的 task 建空 gate。
+- Worker 的 `ask` 或 `decision_gate` 消息按动态 orchestration 指南用消息 ID
+  `reply`；答复后继续等待当前 dispatch。
+- 已有 DAG 中由 coordinator 管理的阻塞决策才使用 `gate-create` / `gate-resolve`。
+  不存在抽象的 `decision_gate` 命令。
 
 ## 权限与无人值守
 
@@ -54,8 +60,8 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
   主动关闭审批或沙箱。
 - 只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可使用
   对应 CLI 的审批绕过参数；并把授权范围写入 work order 的 `[权限]`。
-- 无法在现有权限下继续时，保留原始错误并通过 `decision_gate` 决定提升权限、
-  更换执行方式或停止。不得把无人值守参数当作解决权限错误的默认办法。
+- 无法在现有权限下继续时保留原始错误，并按上述裁决规则决定提升权限、更换执行
+  方式或停止。不得把无人值守参数当作解决权限错误的默认办法。
 - 无人值守参数不扩大工作单范围，也不覆盖仓库对 commit、push、部署、密钥、
   数据和破坏性操作的限制。
 
@@ -90,7 +96,7 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 1. 运行 `orca skills get orca-cli`、`orca skills get orchestration` 和
    `orca status --json`，以当前动态指南为命令与生命周期的事实来源。
 2. 选择 worker、模型和 effort，完整读取唯一匹配的 worker 手册；需要确认的
-   高成本配置或权限提升先完成 `decision_gate`。
+   高成本配置或权限提升在派单前按裁决规则解决。
 3. 创建 worker terminal，等待 `tui-idle` 后检查终端已越过登录、信任或启动提示。
    默认在当前 worktree 工作；并行前确认文件、端口、数据库和服务互不冲突。
 4. 创建 task，以 `dispatch --inject` 派发并核验 task/dispatch provenance；滚动等待

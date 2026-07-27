@@ -22,12 +22,12 @@ work order、Orca 生命周期、权限边界与收尾规则以父级
 规格明确的单模块实现用 Terra `high`，复杂工单用 Sol `high`。先补足范围、证据
 和验收标准，再判断是否需要 `xhigh`。`max` 与 `ultra` 仅配 Sol，并满足以下条件：
 
-- 用户显式指定，或 coordinator 说明延迟、消耗和收益后通过 `decision_gate`。
+- 用户显式指定，或 coordinator 说明延迟、消耗和收益后按父级裁决规则取得确认。
 - `max` 对应高风险且质量优先的决策或调查，而不是普通功能和例行 review。
 - `ultra` 还要求当前 Codex 环境明确支持，并且 `max` 已不足以可靠收敛。
 
-用户指定的配置优先。CLI、账号或服务端拒绝时保留原始错误，通过
-`decision_gate` 决定更换配置或停止。
+用户指定的配置优先。CLI、账号或服务端拒绝时保留原始错误，按父级裁决规则决定
+更换配置或停止。
 
 ## 启动
 
@@ -39,15 +39,7 @@ codex --model <gpt-5.6-sol|gpt-5.6-terra> \
   -c model_reasoning_effort="<medium|high|xhigh|max|ultra>"
 ```
 
-只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可附加：
-
-```text
---dangerously-bypass-approvals-and-sandbox
-```
-
-把该授权写入 work order 的 `[权限]`，并再次核对工作区、外部系统和破坏性操作
-边界。若没有授权，保留正常审批与沙箱；自动化因此无法继续时使用
-`decision_gate`，不要自行升级权限。`--yolo` 属于 Kimi，不适用于 Codex。
-
-同范围修复轮可复用 Codex terminal；无关任务使用新 terminal。自定义 worktree
-时只向新建的 Codex agent handle 派单，并确认它能看到任务所依赖的提交或本地改动。
+父级无人值守条件满足时，Codex 对应参数是
+`--dangerously-bypass-approvals-and-sandbox`；`--yolo` 不适用于 Codex。自定义
+worktree 时只向新建的 Codex agent handle 派单，并确认它能看到任务依赖的提交
+或本地改动。
