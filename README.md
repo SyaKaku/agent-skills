@@ -25,11 +25,60 @@ Orca-specific extension and is not an official upstream skill.
 
 ## 使用
 
-每个 `skills/<name>/` 目录都是一个自包含 skill。将所需目录复制或链接到目标
-agent 运行时的 skills 目录；具体安装位置和发现机制以该运行时的文档为准。
+每个 `skills/<name>/` 目录都是一个自包含 skill。推荐使用
+[`skills` CLI](https://skills.sh/docs/cli) 管理，无需全局安装 CLI。
 
-使用前请先阅读目标 skill 的 `compatibility` 和安全说明，确认本机具备依赖的
-CLI、账号权限及隔离能力。
+### 安装
+
+安装仓库中的 skill：
+
+```shell
+npx skills add syakaku/agent-skills
+```
+
+也可以只安装指定 skill：
+
+```shell
+npx skills add syakaku/agent-skills --skill orca-dispatch
+```
+
+默认安装到当前项目；如需在所有项目中使用，添加 `--global`（或 `-g`）：
+
+```shell
+npx skills add syakaku/agent-skills --skill orca-dispatch --global
+```
+
+### 更新
+
+更新已安装的全部 skill：
+
+```shell
+npx skills update
+```
+
+也可以按名称更新，或仅更新全局安装的 skill：
+
+```shell
+npx skills update orca-dispatch
+npx skills update --global
+```
+
+### 卸载
+
+卸载当前项目中的 skill：
+
+```shell
+npx skills remove orca-dispatch
+```
+
+如果安装在全局范围，卸载时同样需要添加 `--global`：
+
+```shell
+npx skills remove --global orca-dispatch
+```
+
+使用前请先阅读目标 skill 的依赖与安全说明，确认本机具备依赖的 CLI、账号权限
+及隔离能力。
 
 ## 安全
 
@@ -42,11 +91,15 @@ CLI、账号权限及隔离能力。
 
 ```text
 agent-skills/
+├── .gitignore
+├── AGENTS.md
 ├── README.md
 ├── LICENSE
 └── skills/
     └── orca-dispatch/
         ├── SKILL.md
+        ├── agents/
+        │   └── openai.yaml
         └── references/
             ├── codex-worker.md
             └── kimi-worker.md

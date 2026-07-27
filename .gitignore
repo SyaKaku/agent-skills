@@ -1,0 +1,25 @@
+# Local environments and overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+*.local.*
+
+# Private keys and credential stores
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kdbx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Logs and secret-scan reports
+*.log
+gitleaks-report.*
+trufflehog-report.*
