@@ -48,6 +48,14 @@ kimi -m kimi-code/kimi-for-coding
 kimi -m kimi-code/kimi-for-coding-highspeed
 ```
 
+### 派发后信号
+
+按父级启动核验处理恢复动作。Kimi 不使用 Codex 的
+`[Pasted Content ...]` 或 `UserPromptSubmit` 作为信号；只根据派发前 cursor
+之后当前工单已作为新一轮对话出现，或新的推理、工具输出、lifecycle 消息确认
+本轮已启动。正常提交或无法明确确认 `tui-idle` 时保持只读，不因缺少 Codex
+专用标记而补回车。
+
 当前 Kimi Code CLI 的 `-m` 只选择模型别名，不提供 `--effort` 启动参数。K3 的
 effort 应在 `/model` 中选择，或使用现有 `config.toml` 的 `[thinking] effort`
 配置；启动 worker 前确认生效值符合 work order，不要为此擅自修改用户的全局

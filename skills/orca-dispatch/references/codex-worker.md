@@ -39,6 +39,15 @@ codex --model <gpt-5.6-sol|gpt-5.6-terra> \
   -c model_reasoning_effort="<medium|high|xhigh|max|ultra>"
 ```
 
+### 派发后信号
+
+按父级启动核验处理恢复动作。Codex 可能把长文本显示为
+`[Pasted Content <N> chars]`；本轮 terminal 尾部停在该占位符，且没有新的
+`UserPromptSubmit`、推理或工具输出，是 prompt 仍待提交的强证据。
+`UserPromptSubmit` 只在对应 hook 可用时作为正向证据，缺少该 hook 本身不能判定
+卡住。复用 terminal 时只检查派发前 cursor 之后的信号，不得用旧工单留下的
+`UserPromptSubmit` 或输出通过本轮核验。
+
 父级无人值守条件满足时，Codex 对应参数是
 `--dangerously-bypass-approvals-and-sandbox`；`--yolo` 不适用于 Codex。自定义
 worktree 时只向新建的 Codex agent handle 派单，并确认它能看到任务依赖的提交
