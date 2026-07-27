@@ -5,6 +5,10 @@ Reusable AI agent skills for daily development workflows.
 这是一个用于维护日常 AI 编程协作能力的 skill 集合。每个 skill 都放在
 `skills/` 下的独立目录中，并包含自己的 `SKILL.md` 与按需加载的资源。
 
+本仓库遵循 [Agent Skills 开放标准](https://agentskills.io/home)。Claude Code、
+Codex、Qoder、Kimi Code、iFlow、CodeBuddy、Cursor 等 40+ 款支持该标准的 Agent
+均可安装本仓库中的 skills。
+
 ## 来源与致谢
 
 本仓库的日常工程 skill 组织方式与部分工作流约定，基于并参考
