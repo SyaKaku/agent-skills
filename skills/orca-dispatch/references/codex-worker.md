@@ -31,13 +31,38 @@ work order、Orca 生命周期、权限边界与收尾规则以父级
 
 ## 启动
 
-先确认 `codex --version` 和所选模型可用，再按动态 `orca-cli` 指南创建 terminal。
+先确认 `codex --version`、所选模型和生命周期发送路径可用，再按动态 `orca-cli`
+指南创建 terminal。Coordinator 用 `(Get-Command orca -ErrorAction Stop).Source`
+记录实际 Orca 可执行文件；若 worker PowerShell 不能解析裸 `orca`，在 `[工具]`
+中提供该完整路径并要求 lifecycle 命令直接使用它，不让 worker 扫描安装目录。
+
 基础命令不主动关闭审批或沙箱：
 
 ```text
 codex --model <gpt-5.6-sol|gpt-5.6-terra> \
   -c model_reasoning_effort="<medium|high|xhigh|max|ultra>"
 ```
+
+### 生命周期审批
+
+Codex CLI 0.145.0 的 `approvals_reviewer="auto_review"` 可能把
+`orca orchestration send` 判为高风险并自动拒绝；完整 Orca 路径只解决命令解析，
+不解决审批。派单前按以下优先级选择并验证一条路径：
+
+1. 优先复用用户或仓库策略中已授权的精确 execpolicy `allow` rule，只匹配实际
+   Orca 可执行文件的 `orchestration send` 前缀；用
+   `codex execpolicy check --rules <file> -- <orca-executable> orchestration send ...`
+   分别验证 `heartbeat` 与 `worker_done` 命令命中 `allow`。未经用户授权不得新增
+   或扩大 rule。
+2. 需要用户逐次裁决时，用
+   `--ask-for-approval on-request -c approvals_reviewer="user"` 启动，并在 terminal
+   出现审批提示时请用户处理；这不是无人值守路径。
+3. 只有父级无人值守条件满足时，才使用
+   `--dangerously-bypass-approvals-and-sandbox`。`--ask-for-approval never`
+   不等于授权被策略拒绝的命令，不得把它当作替代。
+
+没有可用路径时在 `task-create` / `dispatch` 前停止并升级。不得先完成长任务，再把
+`worker_done` 能否发送留到收尾阶段验证。
 
 ### 派发后信号
 
@@ -48,7 +73,5 @@ codex --model <gpt-5.6-sol|gpt-5.6-terra> \
 卡住。复用 terminal 时只检查派发前 cursor 之后的信号，不得用旧工单留下的
 `UserPromptSubmit` 或输出通过本轮核验。
 
-父级无人值守条件满足时，Codex 对应参数是
-`--dangerously-bypass-approvals-and-sandbox`；`--yolo` 不适用于 Codex。自定义
-worktree 时只向新建的 Codex agent handle 派单，并确认它能看到任务依赖的提交
-或本地改动。
+`--yolo` 不适用于 Codex。自定义 worktree 时只向新建的 Codex agent handle
+派单，并确认它能看到任务依赖的提交或本地改动。

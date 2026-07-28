@@ -39,14 +39,46 @@ K2.7 Code 两个模型不使用 effort 档位，但必须保持 Thinking 开启�
 ## 启动
 
 先确认 Kimi CLI、登录状态和所选模型可用，再按动态 `orca-cli` 指南创建
-terminal。基础命令不主动关闭审批或沙箱：
+terminal。Kimi worker 默认以 `--yolo` 启动（自动批准常规工具调用，不抑制
+提问与升级）：监督式 dispatch 要求 lifecycle 消息不被审批提示阻塞，实测
+默认审批配置下 `orca orchestration send` 会停在 `▶ Run this command?`。
+这属于本仓库策略明确选择的启动模式，已满足父级无人值守条件；`--yolo`
+不扩大工单范围，也不覆盖仓库安全红线，但每次派单仍须在工单 `[权限]`
+中写明。基础命令：
 
 ```text
-kimi -m kimi-code/k3-256k
-kimi -m kimi-code/k3
-kimi -m kimi-code/kimi-for-coding
-kimi -m kimi-code/kimi-for-coding-highspeed
+kimi -m kimi-code/k3-256k --yolo
+kimi -m kimi-code/k3 --yolo
+kimi -m kimi-code/kimi-for-coding --yolo
+kimi -m kimi-code/kimi-for-coding-highspeed --yolo
 ```
+
+当前 Kimi Code CLI 的 `-m` 只选择模型别名，官方没有 `--effort` 启动旗标。K3 的
+effort 有三个来源：TUI 内 `/model`、`config.toml` 的 `[thinking] effort`，以及
+每次启动生效的环境变量 `KIMI_MODEL_THINKING_EFFORT`（仅 kimi provider 且
+Thinking 开启时生效，会绕过模型声明的 `support_efforts` 直接下发，取值必须在
+目标模型支持的档位内）。工单需要固定 effort 时优先用环境变量，不修改用户的
+全局配置；Orca 的 Windows 终端是 PowerShell，bash 风格的 `VAR=x cmd` 前缀会
+报错，正确写法：
+
+```text
+$env:KIMI_MODEL_THINKING_EFFORT='low'; kimi -m kimi-code/k3-256k
+```
+
+启动 worker 后确认状态栏 `thinking:` 生效值符合 work order。切换模型或 effort
+会使既有上下文缓存失效，需切换时优先创建新 session，不要在长会话中反复切换。
+
+Kimi worker 同样在 Orca 的 PowerShell 终端发送 lifecycle 命令。Coordinator 用
+`(Get-Command orca -ErrorAction Stop).Source` 记录实际 Orca 可执行文件；若
+worker 不能解析裸 `orca`，在 `[工具]` 中提供该完整路径并要求 lifecycle 命令
+直接使用它，不让 worker 扫描安装目录。
+
+默认启动即 `--yolo`（见上文命令），不再按父级无人值守条件逐次判断；Codex
+的审批绕过参数不适用于 Kimi。不用 `--auto`：监督式 worker 需要保留向
+coordinator 提问和升级的能力，`--yolo` 只自动批准工具调用、不抑制提问，
+`--auto` 面向完全自治场景，不作为 worker 启动参数。用户明确要求保留逐次
+审批时去掉 `--yolo`；此时 lifecycle 命令可能停在审批提示，按父级权限规则
+裁决，不要当作注入失败重新派单。
 
 ### 派发后信号
 
@@ -56,11 +88,15 @@ kimi -m kimi-code/kimi-for-coding-highspeed
 本轮已启动。正常提交或无法明确确认 `tui-idle` 时保持只读，不因缺少 Codex
 专用标记而补回车。
 
-当前 Kimi Code CLI 的 `-m` 只选择模型别名，不提供 `--effort` 启动参数。K3 的
-effort 应在 `/model` 中选择，或使用现有 `config.toml` 的 `[thinking] effort`
-配置；启动 worker 前确认生效值符合 work order，不要为此擅自修改用户的全局
-配置。切换模型或 effort 会使既有上下文缓存失效，需切换时优先创建新 session，
-不要在长会话中反复切换。
+长工单 `dispatch --inject` 由 Kimi TUI 直接提交，实测无 Codex 式粘贴停滞。
+`terminal read` 可视区对会话内容的可见性不稳定：活跃期可能完整显示工单与
+输出，也可能只剩空闲输入框，与“尚未开始”相似。可视区只作辅助证据，启动与
+完成判断以派发前 cursor 增量和 orchestration 消息为准，恢复动作按父级启动
+核验的条件执行。
 
-父级无人值守条件满足时，Kimi 对应参数是 `--yolo`；Codex 的审批绕过参数不适用
-于 Kimi。
+默认审批配置下，非 `--yolo` 启动的 worker 执行 preamble 的
+`orca orchestration send`（heartbeat / `worker_done`）可能停在审批提示
+（实测形态为 `▶ Run this command?`），`check --wait` 表现为静默超时，与
+注入未提交在消息层面相似。读取 worker 终端出现审批提示说明工单已提交、
+worker 在等权限，不是启动核验失败；按父级权限规则裁决（取得用户授权后代为
+批准，或升级用户），不要当作注入失败重新派单。

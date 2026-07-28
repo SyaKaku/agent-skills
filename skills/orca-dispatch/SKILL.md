@@ -58,6 +58,10 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 
 - Worker 默认遵守 CLI、用户和目标仓库现有的审批与沙箱策略。不要仅为了自动化而
   主动关闭审批或沙箱。
+- 监督式 dispatch 要求 worker 能从自己的 terminal 发送 `worker_done`；coordinator
+  不能代发。派单前按所选 worker 手册确认 Orca CLI 可解析且生命周期命令有一条
+  可执行的审批路径。两者任一不满足时先解决或升级，不得创建一个注定无法闭环的
+  dispatch。
 - 只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可使用
   对应 CLI 的审批绕过参数；并把授权范围写入 work order 的 `[权限]`。
 - 无法在现有权限下继续时保留原始错误，并按上述裁决规则决定提升权限、更换执行
@@ -103,7 +107,9 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
    lifecycle 消息，均可证明已启动；此时保持只读。无法明确确认 `tui-idle` 时
    也不得发送输入，继续观察并保留原始状态或错误。
 3. 仅当当前 dispatch 仍为 `dispatched`、`tui-idle` 明确满足，且有界观察后没有
-   本轮提交或活动证据时，补发一次：
+   本轮提交或活动证据时，补发一次。除 terminal 尾部已有明确待提交输入外，至少
+   在两次 `terminal read` 之间完成一个短时、带显式 `--timeout-ms` 的
+   `check --wait` 窗口，并确认两次 `nextCursor` 均未增长作为静默证据：
 
    ```text
    orca terminal send --terminal <worker-handle> --text '' --enter --json
@@ -116,13 +122,36 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
 只认派发前 cursor 之后的本轮证据；复用 terminal 时不得把旧工单的输出或 hook
 当作当前 dispatch 已启动。
 
+## 滚动等待与交付缺口
+
+`check --wait` 返回 `count: 0` 只是检查点。每轮超时后读取当前 task/dispatch、
+派发后 cursor 增量和 terminal 状态：
+
+- 有新的推理、工具输出、heartbeat 或其他活动时继续等待；不得仅因缺少 heartbeat
+  或一次静默超时停止 worker。
+- 已确认本轮启动后，若 terminal 回到 agent 输入态却没有当前 dispatch 的
+  `worker_done`，检查尾部是否有审批提示、Automatic approval rejection、CLI
+  解析错误或 worker 最终回复。审批提示按权限规则升级；明确拒绝或解析错误是
+  lifecycle delivery failure，不是注入失败。
+- Worker 已输出最终回复并回到输入态，却仍无 `worker_done`，同样属于 lifecycle
+  delivery failure；没有最终回复或错误证据的暂时空闲保持观察，不据此判定失败。
+- Delivery failure 时保存 `dispatch-show`、terminal 增量和原始错误；不得把任务
+  视为完成、补发空回车、由 coordinator 代发 `worker_done`，也不得重复当前
+  dispatch。Automatic approval rejection、CLI 解析错误或 turn 已结束且消息未送达
+  时，按动态 orchestration 指南将 task 标记为 `failed`；仍在等待用户审批或外部
+  条件时标记为 `blocked`。若仍需回收已有产物，先修复新 worker 的生命周期前置
+  条件，再创建新的验证或返工 task/dispatch。
+- terminal 仍在工作、状态含糊或只有暂时空闲时继续有界观察。只有明确的完成消息、
+  delivery failure、terminal 退出/消失或用户裁决才能结束滚动等待。
+
 ## 监督式流程
 
 1. 运行 `orca skills get orca-cli`、`orca skills get orchestration` 和
    `orca status --json`，以当前动态指南为命令与生命周期的事实来源。
 2. 选择 worker、模型和 effort，完整读取唯一匹配的 worker 手册；需要确认的
-   高成本配置或权限提升在派单前按裁决规则解决。
+   高成本配置、Orca CLI 解析方式或权限提升在派单前按裁决规则解决。
 3. 创建 worker terminal，等待 `tui-idle` 后检查终端已越过登录、信任或启动提示。
+   `tui-idle` 单独成立不够；MCP server 或其他启动日志仍增长时继续有界等待。
    默认在当前 worktree 工作；并行前确认文件、端口、数据库和服务互不冲突。
 4. 创建 task，以 `dispatch --inject` 派发并核验 task/dispatch provenance；按上述
    规则确认 worker 已启动后，滚动等待 `worker_done`、`escalation`、
