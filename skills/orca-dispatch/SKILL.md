@@ -102,12 +102,36 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 - 只读审计或顺序执行的代码任务默认使用任务所依赖的现有 worktree。并行且会修改
   代码的独立任务，默认每个 worker 使用独立 git worktree；需要共享未提交修改时
   不得拆 worktree，先留在原 worktree 或解决可复现的基线。
+- 新建 worktree 的 worker 优先 agent-first 创建：
+  `worktree create --agent <id> --prompt <brief>` 让 agent 直接占首个
+  terminal。`--agent`、`--activate`、`--run-hooks` 会把 worktree 带到前台，
+  plain create 留在后台。需要自定义 argv（Codex 的 model/effort、Kimi 的
+  `--yolo` 或 effort 环境变量）时只能走两步法，bare create 会多开一个
+  fallback shell，属预期行为而非异常：只操作 agent handle，经
+  `terminal list` / `terminal show` 确认 fallback shell 未使用后才允许关闭。
+- 一个 worktree 可挂多个 terminal；terminal 在创建时用 `--worktree` 绑定，
+  创建后不可移动。review、repair 或补测 worker 必须落在目标 worktree 时，用
+  `terminal create --worktree id:<repoId>::<path>` 创建新 agent terminal——
+  完整两段式 id 从 `worktree create --json` 或 `worktree list --json` 复制，
+  不得凭 sidebar 位置或目录名推断归属。
 - 创建 worktree 前检查 `git status`、当前 HEAD、目标 base ref 及依赖提交。不得假设
   Orca 的默认 base 已包含本地分支进度；需要当前分支内容时显式传入对应 branch/ref。
 - Worktree 只隔离 checkout、分支与构建目录，不隔离端口、数据库、测试账号和外部
   服务。并行工单必须分配互不冲突的端口、数据或环境，无法隔离时改为串行。
 - 独立 worktree 必须在工单和报告中记录完整 worktree ID、分支、起始 HEAD 与集成
   方式。未明确集成方式的并行代码任务不得开工。
+
+## 可用性与额度
+
+- 派单前用最小成本信号确认 worker 账户可用（CLI 启动、模型加载、一次平凡
+  短任务的提交信号）。账户级用量上限不能靠新建 terminal 或降低模型/effort
+  档位绕过；识别到 account-wide limit 后不得连续创建注定失败的 worker。
+- Worker 因额度在任务中途终止时保留现场：原 terminal、非干净 worktree、
+  base SHA、task/dispatch ID、已通过证据与未闭合 finding，禁止 reset/clean。
+  替换工单用 `task-create --parent` 与原工单建立父子关系，并写明禁止动作。
+- CLI 提示的 `usage limit reset` 与购买 credits 同属账户状态变更，只有用户
+  裁决后才能消耗；coordinator 不得自行输入 `/usage` 或消耗 reset，需要时按
+  裁决规则给出等待/消耗/放弃的选项。
 
 ## 实现类工单
 
