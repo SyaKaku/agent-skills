@@ -13,9 +13,9 @@ Codex、Qoder、Kimi Code、iFlow、CodeBuddy、Cursor 等 40+ 款支持该标�
 
 本仓库的日常工程 skill 组织方式与部分工作流约定，基于并参考
 [Matt Pocock 的 Engineering Skills](https://github.com/mattpocock/skills/tree/main/skills/engineering)。
-`orca-dispatch` 是结合 Orca coordinator/worker 生命周期形成的独立扩展，会在
-可用时配合其中的 `implement`、`code-review` 等 skills 使用；它不是上游仓库的
-官方组成部分。
+`orca-dispatch` 是结合 Orca coordinator/worker 生命周期形成的独立扩展，会配合
+上游的 `grill-with-docs`、`to-spec`、`to-tickets`、`implement`、`code-review` 等
+skills 使用；它不是上游仓库的官方组成部分。
 
 The organization and workflow conventions in this repository are based on and
 inspired by Matt Pocock's Engineering Skills. `orca-dispatch` is an independent
@@ -25,7 +25,7 @@ Orca-specific extension and is not an official upstream skill.
 
 | Skill | 用途 | 运行环境 |
 |---|---|---|
-| [`orca-dispatch`](skills/orca-dispatch/) | 通过 Orca 创建工作单、派发 Codex 或 Kimi worker，并监督、复核和回收结果 | Orca CLI，以及 Codex CLI 或 Kimi CLI |
+| [`orca-dispatch`](skills/orca-dispatch/) | 通过 Orca 把想法变成可追踪的多 worker 流水线：从规格/拆票到派单、实现与对抗式验收，并监督、复核和回收结果 | Orca CLI，以及 Codex CLI 或 Kimi CLI |
 
 ## 使用
 
