@@ -73,7 +73,8 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 
 ## 裁决与 gate
 
-- 派单前缺少用户选择时直接询问，不为尚未创建的 task 建空 gate。
+- 🔴 CHECKPOINT · 🛑 STOP：派单前缺少用户选择时直接询问；收到选择前不得创建
+  terminal、task、dispatch 或空 gate。
 - Worker 的 `ask` 或 `decision_gate` 消息按动态 orchestration 指南用消息 ID
   `reply`；答复后继续等待当前 dispatch。
 - 已有 DAG 中由 coordinator 管理的阻塞决策才使用 `gate-create` / `gate-resolve`。
@@ -87,8 +88,9 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
   不能代发。派单前按所选 worker 手册确认 Orca CLI 可解析且生命周期命令有一条
   可执行的审批路径。两者任一不满足时先解决或升级，不得创建一个注定无法闭环的
   dispatch。
-- 🔴 只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可使用
-  对应 CLI 的审批绕过参数；并把授权范围写入 work order 的 `[权限]`。
+- 🔴 CHECKPOINT · 🛑 STOP：只有用户已明确授权，或目标仓库/运行时策略已明确选择
+  无人值守模式时，才可使用对应 CLI 的审批绕过参数；并把授权范围写入 work order
+  的 `[权限]`。
 - 无法在现有权限下继续时保留原始错误，并按上述裁决规则决定提升权限、更换执行
   方式或停止。不得把无人值守参数当作解决权限错误的默认办法。
 - 无人值守参数不扩大工作单范围，也不覆盖仓库对 commit、push、部署、密钥、
@@ -129,9 +131,9 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 - Worker 因额度在任务中途终止时保留现场：原 terminal、非干净 worktree、
   base SHA、task/dispatch ID、已通过证据与未闭合 finding，禁止 reset/clean。
   替换工单用 `task-create --parent` 与原工单建立父子关系，并写明禁止动作。
-- 🔴 CLI 提示的 `usage limit reset` 与购买 credits 同属账户状态变更，只有用户
-  裁决后才能消耗；coordinator 不得自行输入 `/usage` 或消耗 reset，需要时按
-  裁决规则给出等待/消耗/放弃的选项。
+- 🔴 CHECKPOINT · 🛑 STOP：CLI 提示的 `usage limit reset` 与购买 credits 同属
+  账户状态变更，只有用户裁决后才能消耗；coordinator 不得自行输入 `/usage` 或
+  消耗 reset，需要时按裁决规则给出等待/消耗/放弃的选项。
 
 ## 实现类工单
 
@@ -251,9 +253,9 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
 - 只读 worker 在报告复核通过后即可关闭。失败或阻塞的 worker 要先保存诊断证据并
   完成继续、替换或放弃的裁决；不得仅因等待超时、暂时无输出或只有 heartbeat
   就关闭、停止或重启。
-- 🔴 Terminal 与 worktree 分开回收：terminal 达到上述条件即可关闭；独立 worktree
-  必须保留到改动集成并完成最终回归。未集成、工作树非干净或恢复方式不明确时禁止
-  删除 worktree；删除属于独立的破坏性清理动作，仍需符合用户授权和精确目标核对。
+- 🔴 CHECKPOINT · 🛑 STOP：Terminal 与 worktree 分开回收；terminal 达到上述条件
+  即可关闭。删除独立 worktree 前必须核对用户授权、精确目标和可恢复性；未集成、
+  工作树非干净或恢复方式不明确时禁止删除。
 - 已验收且预计无同范围返工的 worker 应及时关闭，避免长期保留无关上下文。之后若
   再发现问题，创建新 worker，并把原 task、审查结论和验证证据写入新工单。
 
