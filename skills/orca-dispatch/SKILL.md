@@ -161,12 +161,17 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
    terminal 尾部，并用短时、带显式 `--timeout-ms` 的
    `terminal wait --for tui-idle` 检查状态。
 2. 所选 worker 手册列出的本轮提交信号，以及新的 agent 输出、工具调用或
-   lifecycle 消息，均可证明已启动；此时保持只读。无法明确确认 `tui-idle` 时
-   也不得发送输入，继续观察并保留原始状态或错误。
-3. 仅当当前 dispatch 仍为 `dispatched`、`tui-idle` 明确满足，且有界观察后没有
-   本轮提交或活动证据时，补发一次。除 terminal 尾部已有明确待提交输入外，至少
-   在两次 `terminal read` 之间完成一个短时、带显式 `--timeout-ms` 的
-   `check --wait` 窗口，并确认两次 `nextCursor` 均未增长作为静默证据：
+   lifecycle 消息，均可证明已启动；此时保持只读。`terminal wait` 返回
+   `satisfied=false` / `blockedReason=codex-interactive-prompt` 通常不代表 idle，
+   不得据此补发；只有 terminal 尾部明确停在当前 dispatch 的
+   `[Pasted Content <N> chars]`、没有审批/问答菜单，且两次读取的 cursor 均未增长
+   时，才把它记为“当前 prompt 待提交”信号。其他无法明确分类的状态继续观察并
+   保留原始结果。
+3. 仅当当前 dispatch 仍为 `dispatched`，且 `tui-idle` 明确满足或已取得上述
+   “当前 prompt 待提交”信号，并在有界观察后没有本轮提交或活动证据时，补发一次。
+   除 terminal 尾部已有明确待提交输入外，至少在两次 `terminal read` 之间完成一个
+   短时、带显式 `--timeout-ms` 的 `check --wait` 窗口，并确认两次
+   `nextCursor` 均未增长作为静默证据：
 
    ```text
    orca terminal send --terminal <worker-handle> --text '' --enter --json

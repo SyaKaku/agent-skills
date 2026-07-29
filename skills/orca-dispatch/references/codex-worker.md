@@ -35,6 +35,9 @@ work order、Orca 生命周期、权限边界与收尾规则以父级
 指南创建 terminal。Coordinator 用 `(Get-Command orca -ErrorAction Stop).Source`
 记录实际 Orca 可执行文件；若 worker PowerShell 不能解析裸 `orca`，在 `[工具]`
 中提供该完整路径并要求 lifecycle 命令直接使用它，不让 worker 扫描安装目录。
+不得用 coordinator shell 的解析结果代替 worker 实测。原生 Windows 的 Codex
+sandbox 可能保留 Orca bin 的 `PATH` 项，却仍拒绝读取安装目录或连接 Orca runtime；
+因此完整路径只解决定位问题，不证明命令可执行。
 
 基础命令不主动关闭审批或沙箱：
 
@@ -56,13 +59,49 @@ Codex CLI 0.145.0 的 `approvals_reviewer="auto_review"` 可能把
    或扩大 rule。
 2. 需要用户逐次裁决时，用
    `--ask-for-approval on-request -c approvals_reviewer="user"` 启动，并在 terminal
-   出现审批提示时请用户处理；这不是无人值守路径。
+   出现审批提示时请用户处理；lifecycle shell 调用必须显式请求
+   `sandbox_permissions="require_escalated"` 并说明只执行当前 Orca 命令。
+   仅启动 user reviewer、仅传完整路径或仅出现审批提示都不算路径可用；用户批准且
+   命令成功返回才算通过。这不是无人值守路径。
 3. 只有父级无人值守条件满足时，才使用
    `--dangerously-bypass-approvals-and-sandbox`。`--ask-for-approval never`
    不等于授权被策略拒绝的命令，不得把它当作替代。
 
 没有可用路径时在 `task-create` / `dispatch` 前停止并升级。不得先完成长任务，再把
 `worker_done` 能否发送留到收尾阶段验证。
+
+### Worker-side 生命周期预检
+
+在 `task-create` 前，coordinator 生成本轮唯一的 `preflightId`，记录 coordinator
+与候选 worker 的具体 terminal handle，再从最终候选 Codex terminal 使用正式派单
+将采用的 executable、sandbox、approval reviewer 和执行方式完成预检：
+
+1. 运行 `<orca-executable> status --json`，确认 `runtime.reachable=true`。
+2. 由 worker 使用同一审批路径向具体 coordinator handle 发送一条不带 task /
+   dispatch ID 的 `status`，`--from` 使用候选 worker handle，subject 包含唯一
+   `preflightId`。该消息既是 outbound orchestration 探针，也是 worker 对
+   coordinator 的主动预检回报。
+3. Coordinator 用带显式 timeout 的
+   `orchestration check --wait --types status` 接收消息，核对 sender handle 与
+   `preflightId`；不得用旧 status、worker TUI 最终回复或 coordinator 的 terminal
+   轮询代替。
+4. 保存命令、审批方式、退出码、关键 JSON 字段和匹配的 status message。审批仍
+   pending、命令在 sandbox 内失败、runtime 不可达、消息未送达或来源不匹配时，
+   关闭候选 terminal 或保留诊断现场，并在创建 task 前停止。
+
+```text
+<orca-executable> orchestration send \
+  --from <worker-handle> --to <coordinator-handle> --type status \
+  --subject "Codex lifecycle preflight passed: <preflightId>" \
+  --body "runtime reachable; outbound orchestration probe passed" --json
+
+orca orchestration check --terminal <coordinator-handle> \
+  --wait --types status --timeout-ms 30000 --json
+```
+
+Coordinator 本地成功、`Get-Command` 成功、`PATH` 含 Orca bin 或审批框成功弹出均
+不能替代上述 worker-side 成功证据。预检只证明 transport 和审批路径可用；正式
+`heartbeat` / `worker_done` 仍须由 worker 使用相同路径发送。
 
 ### 派发后信号
 
