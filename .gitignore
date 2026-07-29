@@ -23,3 +23,7 @@ id_ed25519
 *.log
 gitleaks-report.*
 trufflehog-report.*
+
+# Darwin skill optimization artifacts (local-only records)
+darwin-skill-results.tsv
+skills/*/test-prompts.json
