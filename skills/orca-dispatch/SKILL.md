@@ -87,7 +87,7 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
   不能代发。派单前按所选 worker 手册确认 Orca CLI 可解析且生命周期命令有一条
   可执行的审批路径。两者任一不满足时先解决或升级，不得创建一个注定无法闭环的
   dispatch。
-- 只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可使用
+- 🔴 只有用户已明确授权，或目标仓库/运行时策略已明确选择无人值守模式时，才可使用
   对应 CLI 的审批绕过参数；并把授权范围写入 work order 的 `[权限]`。
 - 无法在现有权限下继续时保留原始错误，并按上述裁决规则决定提升权限、更换执行
   方式或停止。不得把无人值守参数当作解决权限错误的默认办法。
@@ -129,7 +129,7 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 - Worker 因额度在任务中途终止时保留现场：原 terminal、非干净 worktree、
   base SHA、task/dispatch ID、已通过证据与未闭合 finding，禁止 reset/clean。
   替换工单用 `task-create --parent` 与原工单建立父子关系，并写明禁止动作。
-- CLI 提示的 `usage limit reset` 与购买 credits 同属账户状态变更，只有用户
+- 🔴 CLI 提示的 `usage limit reset` 与购买 credits 同属账户状态变更，只有用户
   裁决后才能消耗；coordinator 不得自行输入 `/usage` 或消耗 reset，需要时按
   裁决规则给出等待/消耗/放弃的选项。
 
@@ -198,6 +198,30 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
   条件，再创建新的验证或返工 task/dispatch。
 - terminal 仍在工作、状态含糊或只有暂时空闲时继续有界观察。只有明确的完成消息、
   delivery failure、terminal 退出/消失或用户裁决才能结束滚动等待。
+- terminal 已 idle 且 Git 出现干净新 HEAD，但 `check` 持续没有 `worker_done`
+  时，用 `orca orchestration inbox` 回查未读消息（参数以动态指南为准），按
+  task/dispatch ID 去重核对；不得因此要求 worker 重发或重复执行任务。
+
+## 验收与对抗审查
+
+- 固定审查点是 worker 交付报告的最终 SHA（`worker_done` 后的 hash，不是中途
+  HEAD）；未授权 commit 的工单改为审查干净度核对后的工作树 diff，并在审查
+  记录中写明审查对象形态。
+- Coordinator 的对抗式外审与 worker 自检是两条独立防线：按目标仓库或可发现的
+  `code-review` 规则沿 Standards / Spec 两轴执行，可由 coordinator 本地子
+  agent 并行，也可派只读 review worker（按「Worker 与 worktree 隔离」绑定到
+  同一 worktree）；没有该规则时至少检查需求符合度、diff、相关测试、静态检查
+  和仓库文档约束。只读工单抽查来源、数字和浏览器证据。Coordinator 亲自复验
+  关键命令退出码，不代替 worker 修改。
+- 外审期间冻结审查对象：reviewer 启动后 worker 不得 amend；发生的 amend 使原
+  SHA 的审查结论失效，必须切到新 SHA 重做 targeted 检查，不得沿用旧结论。
+  外审未完成时用 gate 或明确的 review-complete 状态挡住 worker 的最终提交。
+- 验收分别核对 task 状态、pending/resolved gate、消息的 task/dispatch ID 与
+  固定 SHA：pending gate 不会阻止 worker 发送 `worker_done`，三者状态不一定
+  同步，不得把 worker 自报完成或单条 `worker_done` 当作验收通过。
+- 发现 finding 时在同一 worktree 派 repair（复用 terminal 或按隔离节新建绑定
+  terminal），每轮创建新的 task/dispatch；修复后按工单授权 amend 或压缩为
+  约定的提交形态，并以新的最终 SHA 重走固定审查点。
 
 ## 监督式流程
 
@@ -211,9 +235,8 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
 4. 创建 task，以 `dispatch --inject` 派发并核验 task/dispatch provenance；按上述
    规则确认 worker 已启动后，滚动等待 `worker_done`、`escalation`、
    `decision_gate`，及时 reply 后继续等待。
-5. Coordinator 检查实际文件和命令结果，亲自复验关键退出码。代码改动优先按目标
-   仓库或可发现的 `code-review` 规则审查；没有该规则时，至少检查需求符合度、
-   diff、相关测试、静态检查和仓库文档约束。只读工单抽查来源、数字和浏览器证据。
+5. 按「验收与对抗审查」节执行固定审查点的双轴外审与独立复验；finding 按该节
+   派 repair 闭环。
 6. 同范围返工可复用 terminal，但每轮创建新的 task/dispatch；无关任务使用新 terminal。
    以当前 active dispatch 的 ID 对应的有效 `worker_done` 作为本轮完成信号。
 
@@ -228,7 +251,7 @@ agent 已提交 prompt。每个 dispatch 在进入长时滚动等待前执行一
 - 只读 worker 在报告复核通过后即可关闭。失败或阻塞的 worker 要先保存诊断证据并
   完成继续、替换或放弃的裁决；不得仅因等待超时、暂时无输出或只有 heartbeat
   就关闭、停止或重启。
-- Terminal 与 worktree 分开回收：terminal 达到上述条件即可关闭；独立 worktree
+- 🔴 Terminal 与 worktree 分开回收：terminal 达到上述条件即可关闭；独立 worktree
   必须保留到改动集成并完成最终回归。未集成、工作树非干净或恢复方式不明确时禁止
   删除 worktree；删除属于独立的破坏性清理动作，仍需符合用户授权和精确目标核对。
 - 已验收且预计无同范围返工的 worker 应及时关闭，避免长期保留无关上下文。之后若
