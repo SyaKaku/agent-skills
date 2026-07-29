@@ -46,6 +46,31 @@ $orca-dispatch worker=kimi：诊断偶发登录故障
 - **Tier 2 — freeze spec**：写工作单仍会迫使 worker 做产品或架构决策。Coordinator
   先澄清并落盘规格、验收标准和依赖，再拆成 work order 或 DAG。
 
+## 规格流水线
+
+从想法到派单的完整链路中，前置规格阶段由 coordinator 与用户交互完成，
+只有拆解后的执行阶段交给 worker：
+
+1. **拷问与定稿（coordinator 本地，不派单）**：用 `grill-with-docs` 逐问压测
+   方案并就地更新 `CONTEXT.md` / ADR，再用 `to-spec` 把讨论综合为 spec 落盘
+   （本地模式 `.scratch/<feature>/PRD.md`，或发布到项目配置的 issue
+   tracker）。这两个 skill 强交互且禁止模型自动调用；worker 是零历史
+   agent，拿不到对话上下文，不得把拷问或写 spec 派给 worker。
+2. **拆 ticket（coordinator 本地，用户批准后生效）**：用 `to-tickets` 把 spec
+   拆成 tracer-bullet ticket；本地模式每 ticket 一个
+   `.scratch/<feature>/issues/<NN>-<slug>.md`，含 `Blocked by:` 边与验收
+   标准。粒度和依赖边由用户 quiz 确认后才发布。
+3. **映射为派单 DAG**：每个 ticket 一个 task，`Blocked by` 边写入
+   `task-create --deps <json_array>`。批量建单前先从 issues 目录枚举文件，
+   把编号到真实路径的清单写进 DAG，不得凭任务摘要猜文件名。标题显式传
+   `--task-title`（人类可读），不依赖 spec 首行派生。从 frontier（无未完成
+   blocker 的 ticket）起按波次派单，依赖链深度不超过 3–4 层。
+4. **执行与验收**：为每个 frontier ticket 按 Tier 1 写 work order，`[规格]`
+   引用 PRD 与 ticket 文件的精确路径；实现与验收按「实现类工单」和「监督式
+   流程」执行。
+
+用户直接给出已批准的 spec 或 tickets 时跳过前两步，从 DAG 映射开始。
+
 ## 裁决与 gate
 
 - 派单前缺少用户选择时直接询问，不为尚未创建的 task 建空 gate。
