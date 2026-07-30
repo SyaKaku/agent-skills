@@ -1,0 +1,4 @@
+interface:
+  display_name: "寓言解释"
+  short_description: "用精炼寓言讲清抽象概念，并配套解析与检验问题"
+  default_prompt: "使用 $fable-explain 用一则精炼寓言解释我指定的概念，并给出概念解析和检验问题。"
