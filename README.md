@@ -25,7 +25,11 @@ Orca-specific extension and is not an official upstream skill.
 
 | Skill | 用途 | 运行环境 |
 |---|---|---|
+| [`fable-explain`](skills/fable-explain/) | 用精炼寓言解释抽象概念，并给出定义、元素映射和理解/迁移检验 | Claude Code、Codex、Kimi Code 等 Agent Skills 兼容运行时 |
 | [`orca-dispatch`](skills/orca-dispatch/) | 通过 Orca 把想法变成可追踪的多 worker 流水线：从规格/拆票到派单、实现与对抗式验收，并监督、复核和回收结果 | Orca CLI，以及 Codex CLI 或 Kimi CLI |
+
+各 skill 的跨运行时入口均为 `SKILL.md`；`agents/openai.yaml` 仅提供可选的
+OpenAI UI metadata，不是 Claude Code 或 Kimi Code 的运行依赖。
 
 ## 使用
 
@@ -100,6 +104,10 @@ agent-skills/
 ├── README.md
 ├── LICENSE
 └── skills/
+    ├── fable-explain/
+    │   ├── SKILL.md
+    │   └── agents/
+    │       └── openai.yaml
     └── orca-dispatch/
         ├── SKILL.md
         ├── agents/
