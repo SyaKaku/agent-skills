@@ -82,9 +82,9 @@ Codex CLI 0.145.0 的 `approvals_reviewer="auto_review"` 可能把
    `preflightId`。该消息既是 outbound orchestration 探针，也是 worker 对
    coordinator 的主动预检回报。
 3. Coordinator 用带显式 timeout 的
-   `orchestration check --wait --types status` 接收消息，核对 sender handle 与
-   `preflightId`；不得用旧 status、worker TUI 最终回复或 coordinator 的 terminal
-   轮询代替。
+   `orchestration check --wait --types status` 接收 FIFO Delivery，核对 sender handle
+   与 `preflightId`；保存证据后处理整批消息并 ack。不得用旧 status、worker TUI
+   最终回复或 coordinator 的 terminal 轮询代替。
 4. 保存命令、审批方式、退出码、关键 JSON 字段和匹配的 status message。审批仍
    pending、命令在 sandbox 内失败、runtime 不可达、消息未送达或来源不匹配时，
    关闭候选 terminal 或保留诊断现场，并在创建 task 前停止。
@@ -101,7 +101,9 @@ orca orchestration check --terminal <coordinator-handle> \
 
 Coordinator 本地成功、`Get-Command` 成功、`PATH` 含 Orca bin 或审批框成功弹出均
 不能替代上述 worker-side 成功证据。预检只证明 transport 和审批路径可用；正式
-`heartbeat` / `worker_done` 仍须由 worker 使用相同路径发送。
+`heartbeat` / `worker_done` 仍须由 worker 使用相同路径发送。预检通过后按父级流程
+创建 task，并用 `worker-start --terminal <candidate-handle>` 绑定该 terminal；只有
+当前动态指南证明组合命令无法表达所需拓扑时才回退低层 `dispatch --inject`。
 
 ### 派发后信号
 

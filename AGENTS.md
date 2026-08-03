@@ -37,8 +37,9 @@
 - 用户明确要求派单并回收结果时，即使任务简单也不得改由 coordinator 本地完成。
 - 修改 Orca 命令或生命周期前，先读取 `orca skills get orca-cli` 和
   `orca skills get orchestration`；动态指南优先于仓库中的静态示例。
-- 派单前缺少选择时直接询问；worker 的 `ask` / `decision_gate` 用消息 ID
-  `reply`；只有已有 DAG 的 coordinator 阻塞决策使用 gate 命令。
+- 派单前缺少选择时直接询问；worker 的 `ask` 生成 `question` 消息并用消息 ID
+  `reply`；`decision_gate` 只按动态指南处理 legacy/gate 场景，只有已有 DAG 的
+  coordinator 阻塞决策使用 gate 命令。
 - 保留 work order、provenance、独立复验、terminal 关闭和 worktree 回收规则；
   这些是高风险流程的必要护栏，不为缩短篇幅而删除。
 

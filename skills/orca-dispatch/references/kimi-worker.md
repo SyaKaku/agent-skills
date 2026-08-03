@@ -67,6 +67,9 @@ $env:KIMI_MODEL_THINKING_EFFORT='low'; kimi -m kimi-code/k3-256k
 
 启动 worker 后确认状态栏 `thinking:` 生效值符合 work order。切换模型或 effort
 会使既有上下文缓存失效，需切换时优先创建新 session，不要在长会话中反复切换。
+创建并核验最终 Kimi terminal 后，按父级流程创建 task，并用
+`worker-start --terminal <candidate-handle>` 绑定；只有当前动态指南证明组合命令
+无法表达所需拓扑时才回退低层 `dispatch --inject`。
 
 Kimi worker 同样在 Orca 的 PowerShell 终端发送 lifecycle 命令。Coordinator 用
 `(Get-Command orca -ErrorAction Stop).Source` 记录实际 Orca 可执行文件；若
@@ -88,7 +91,7 @@ coordinator 提问和升级的能力，`--yolo` 只自动批准工具调用、�
 本轮已启动。正常提交或无法明确确认 `tui-idle` 时保持只读，不因缺少 Codex
 专用标记而补回车。
 
-长工单 `dispatch --inject` 由 Kimi TUI 直接提交，实测无 Codex 式粘贴停滞。
+低层 `dispatch --inject` 由 Kimi TUI 直接提交，实测无 Codex 式粘贴停滞。
 `terminal read` 可视区对会话内容的可见性不稳定：活跃期可能完整显示工单与
 输出，也可能只剩空闲输入框，与“尚未开始”相似。可视区只作辅助证据，启动与
 完成判断以派发前 cursor 增量和 orchestration 消息为准，恢复动作按父级启动
