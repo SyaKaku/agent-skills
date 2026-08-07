@@ -1,4 +1,4 @@
 interface:
   display_name: "Orca 监督式派单"
-  short_description: "监督 Codex/Kimi worker 的 Orca 派单、验收与安全回收"
-  default_prompt: "使用 $orca-dispatch 派发并监督一个 worker，验收结果后安全回收。"
+  short_description: "有界并发监督 Codex/Kimi worker，按交付面验收并安全回收"
+  default_prompt: "使用 $orca-dispatch 以有界并发派发 worker，按冻结交付面验收后安全回收。"

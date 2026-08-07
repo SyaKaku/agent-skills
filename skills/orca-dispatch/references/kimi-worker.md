@@ -14,10 +14,10 @@ Kimi CLI、账号套餐和 `orca status` 确认配置可用；产品版本变化
 
 | 模型 | 匹配规则 |
 |---|---|
-| `kimi-code/k3-256k` | 默认首选。适合上下文不超过 256K 的日常问答、代码补全、常规功能开发及单文件或少量文件修复；支持图片，不支持视频，需要 Moderato 或更高套餐 |
-| `kimi-code/k3` | 仅在预计上下文会超过 256K、必须保留已超过 256K 的会话，或任务需要 K3 处理视频时使用；上下文不超过 256K 且无视频时改用 `k3-256k`，效果相同且消耗约为一半；需要 Moderato 或更高套餐，Allegretto 或更高套餐才支持最高 1M 上下文 |
-| `kimi-code/kimi-for-coding` | K2.7 Code 标准版，适合代码补全和常规开发；所有会员可用，可作为无 K3 权限时的回退，并支持图片和视频 |
-| `kimi-code/kimi-for-coding-highspeed` | 与 K2.7 Code 标准版编码能力一致，输出约快 5–6 倍但消耗约为 3 倍；仅用于延迟敏感且耗时主要来自模型输出的任务，工具或脚本执行占比高时不升级；需要 Allegretto 或更高套餐 |
+| `k3-256k` | 默认首选。适合上下文不超过 256K 的日常问答、代码补全、常规功能开发及单文件或少量文件修复；支持图片，不支持视频，需要 Moderato 或更高套餐 |
+| `k3` | 仅在预计上下文会超过 256K、必须保留已超过 256K 的会话，或任务需要 K3 处理视频时使用；上下文不超过 256K 且无视频时改用 `k3-256k`，效果相同且消耗约为一半；需要 Moderato 或更高套餐，Allegretto 或更高套餐才支持最高 1M 上下文 |
+| `kimi-for-coding` | K2.7 Code 标准版，适合代码补全和常规开发；所有会员可用，可作为无 K3 权限时的回退，并支持图片和视频 |
+| `kimi-for-coding-highspeed` | 与 K2.7 Code 标准版编码能力一致，输出约快 5–6 倍但消耗约为 3 倍；仅用于延迟敏感且耗时主要来自模型输出的任务，工具或脚本执行占比高时不升级；需要 Allegretto 或更高套餐 |
 
 K3 与 K3-256K 支持以下 effort：
 
@@ -42,15 +42,15 @@ K2.7 Code 两个模型不使用 effort 档位，但必须保持 Thinking 开启�
 terminal。Kimi worker 默认以 `--yolo` 启动（自动批准常规工具调用，不抑制
 提问与升级）：监督式 dispatch 要求 lifecycle 消息不被审批提示阻塞，实测
 默认审批配置下 `orca orchestration send` 会停在 `▶ Run this command?`。
-这属于本仓库策略明确选择的启动模式，已满足父级无人值守条件；`--yolo`
-不扩大工单范围，也不覆盖仓库安全红线，但每次派单仍须在工单 `[权限]`
-中写明。基础命令：
+本 skill 明确选择 `--yolo` 作为 Kimi 默认启动策略；用户可显式要求逐次审批。
+`--yolo` 不扩大工单范围，也不覆盖仓库安全红线，每次派单仍须在工单 `[权限]`
+中写明该模式。基础命令：
 
 ```text
-kimi -m kimi-code/k3-256k --yolo
-kimi -m kimi-code/k3 --yolo
-kimi -m kimi-code/kimi-for-coding --yolo
-kimi -m kimi-code/kimi-for-coding-highspeed --yolo
+kimi -m k3-256k --yolo
+kimi -m k3 --yolo
+kimi -m kimi-for-coding --yolo
+kimi -m kimi-for-coding-highspeed --yolo
 ```
 
 当前 Kimi Code CLI 的 `-m` 只选择模型别名，官方没有 `--effort` 启动旗标。K3 的
@@ -62,7 +62,7 @@ Thinking 开启时生效，会绕过模型声明的 `support_efforts` 直接下�
 报错，正确写法：
 
 ```text
-$env:KIMI_MODEL_THINKING_EFFORT='low'; kimi -m kimi-code/k3-256k
+$env:KIMI_MODEL_THINKING_EFFORT='low'; kimi -m k3-256k --yolo
 ```
 
 启动 worker 后确认状态栏 `thinking:` 生效值符合 work order。切换模型或 effort
@@ -76,12 +76,11 @@ Kimi worker 同样在 Orca 的 PowerShell 终端发送 lifecycle 命令。Coordi
 worker 不能解析裸 `orca`，在 `[工具]` 中提供该完整路径并要求 lifecycle 命令
 直接使用它，不让 worker 扫描安装目录。
 
-默认启动即 `--yolo`（见上文命令），不再按父级无人值守条件逐次判断；Codex
-的审批绕过参数不适用于 Kimi。不用 `--auto`：监督式 worker 需要保留向
+默认启动即 `--yolo`（见上文命令）；用户要求逐次审批时去掉。Codex 的审批绕过参数
+不适用于 Kimi。不用 `--auto`：监督式 worker 需要保留向
 coordinator 提问和升级的能力，`--yolo` 只自动批准工具调用、不抑制提问，
-`--auto` 面向完全自治场景，不作为 worker 启动参数。用户明确要求保留逐次
-审批时去掉 `--yolo`；此时 lifecycle 命令可能停在审批提示，按父级权限规则
-裁决，不要当作注入失败重新派单。
+`--auto` 面向完全自治场景，不作为 worker 启动参数。去掉 `--yolo` 后 lifecycle
+命令可能停在审批提示，按父级权限规则裁决，不要当作注入失败重新派单。
 
 ### 派发后信号
 

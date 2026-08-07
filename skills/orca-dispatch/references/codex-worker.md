@@ -6,8 +6,10 @@ work order、Orca 生命周期、权限边界与收尾规则以父级
 
 ## 模型路由
 
-下表是推荐配置，不是可用性事实。使用前根据当前 Codex CLI、账号能力和
-`orca status` 确认模型与 effort 可用；产品版本变化时优先遵循动态指南。
+下表以 OpenAI 当前
+[GPT-5.6 模型指南](https://developers.openai.com/api/docs/guides/latest-model) 为能力基线，
+但不是账号可用性事实。使用前根据当前 Codex CLI、账号能力和 `orca status` 确认模型
+与 effort 可用；产品版本变化时优先遵循动态指南。
 
 | 配置 | 使用场景 |
 |---|---|
@@ -16,15 +18,17 @@ work order、Orca 生命周期、权限边界与收尾规则以父级
 | `gpt-5.6-sol` + `high` | 跨层实现、测试体系审查、Playwright E2E、架构权衡、复杂诊断、视觉判断 |
 | `gpt-5.6-sol` + `xhigh` | 已有证据但仍有多个合理假设，需要反证或跨模块影响分析 |
 | `gpt-5.6-sol` + `max` | 不可逆架构/迁移、安全授权、资金或数据一致性门禁、重大事故 RCA |
-| `gpt-5.6-sol` + `ultra` | 最高影响的一次性终审；`max` 后仍未收敛且漏判代价重大 |
 
 用户未指定配置时，选择满足任务的最低充分档位：例行任务用 Terra `medium`，
 规格明确的单模块实现用 Terra `high`，复杂工单用 Sol `high`。先补足范围、证据
-和验收标准，再判断是否需要 `xhigh`。`max` 与 `ultra` 仅配 Sol，并满足以下条件：
+和验收标准，再判断是否需要 `xhigh`。`max` 仅配 Sol，并满足以下条件：
 
 - 用户显式指定，或 coordinator 说明延迟、消耗和收益后按父级裁决规则取得确认。
 - `max` 对应高风险且质量优先的决策或调查，而不是普通功能和例行 review。
-- `ultra` 还要求当前 Codex 环境明确支持，并且 `max` 已不足以可靠收敛。
+
+监督式 worker 不使用 `ultra`：它会引入 Codex 自动任务委派，绕过 coordinator 的
+Orca provenance、并发预算和 reviewer 所有权。用户为监督式任务指定 `ultra` 时，派单前
+请其在 `max` 与不监督的 full handoff 之间选择，不得静默降级。
 
 用户指定的配置优先。CLI、账号或服务端拒绝时保留原始错误，按父级裁决规则决定
 更换配置或停止。
@@ -43,14 +47,14 @@ sandbox 可能保留 Orca bin 的 `PATH` 项，却仍拒绝读取安装目录或
 
 ```text
 codex --model <gpt-5.6-sol|gpt-5.6-terra> \
-  -c model_reasoning_effort="<medium|high|xhigh|max|ultra>"
+  -c model_reasoning_effort="<medium|high|xhigh|max>"
 ```
 
 ### 生命周期审批
 
-Codex CLI 0.145.0 的 `approvals_reviewer="auto_review"` 可能把
-`orca orchestration send` 判为高风险并自动拒绝；完整 Orca 路径只解决命令解析，
-不解决审批。派单前按以下优先级选择并验证一条路径：
+Codex 的 `approvals_reviewer="auto_review"` 可能把 `orca orchestration send` 判为高风险
+并自动拒绝；完整 Orca 路径只解决命令解析，不解决审批。不要缓存某个 CLI 版本的结论；
+每次派单前按以下优先级选择并验证一条路径：
 
 1. 优先复用用户或仓库策略中已授权的精确 execpolicy `allow` rule，只匹配实际
    Orca 可执行文件的 `orchestration send` 前缀；用

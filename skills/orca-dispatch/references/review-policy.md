@@ -5,42 +5,63 @@
 
 ## 风险分级与审查拓扑
 
-建实现 task 前按最高适用风险定级，并把等级、理由、review task/gate 和退出条件写入
-工单：
+建实现 task 前按最高适用风险定级，并把等级、理由、reviewer 数、acceptance gate 和
+退出条件写入工单：
 
-| 等级 | 典型边界 | 首轮独立审查 |
+| 等级 | 典型边界 | 独立审查拓扑 |
 | --- | --- | --- |
-| 常规 | 局部 CRUD、文案、机械重构，不改变权限或数据范围 | 一个 combined reviewer，报告分列 Spec / Standards |
-| 边界 | 权限或数据范围、跨层过滤、外部接口兼容 | 先 combined；发现主体越权、上游过滤或安全边界 finding 时追加定向 Standards reviewer |
-| 高风险 | OAuth、会话、密码、支付、隐私、数据迁移、并发一致性、凭据或回滚 | 同一固定审查对象上并行派独立 Spec 与 Standards reviewer |
+| 常规 | 局部 CRUD、文案、机械重构，不改变权限或数据范围 | 0 个独立 reviewer；worker 自检后由 coordinator 复验 |
+| 边界 | 权限或数据范围、跨层过滤、外部接口兼容 | 每个固定交付面一个 combined reviewer；发现主体越权、上游过滤或安全边界 finding 时追加一个定向 Standards reviewer |
+| 高风险 | OAuth、会话、密码、支付、隐私、数据迁移、并发一致性、凭据或回滚 | 最终固定交付面上并行派独立 Spec 与 Standards reviewer |
 
-无法可靠定级时采用更高一级。Reviewer 使用独立 Orca task/dispatch 和 agent session，
-只读固定 SHA；未经 commit 授权时审查 coordinator 已核对干净度的固定 diff。Spec 核对
-需求、AC、业务状态、权限结果和异常路径；Standards 核对工程规则、架构边界、安全
-不变量、并发/存储、发布回滚与测试可信度。
+固定交付面是同一 feature 或 integration checkpoint 中已停止修改、可用一个 SHA 或
+固定工作树 diff 表示的完整改动集合。默认按交付面审查，不按 ticket 重复审查；仍在
+变化的 ticket 不得提前触发外审。无法可靠定级时采用更高一级。
+
+把风险等级和精确 reviewer 数写入派单预算：常规为 0，边界首轮为 1，高风险首轮为 2。
+只有用户明确要求，或 coordinator 已取得可复现反证并写明 targeted scope 时，才可在
+预算中追加 reviewer；不得用“更稳妥”作为扩容理由。
+
+常规为 0 是成本决策，不是免检：coordinator 复验必须亲自重跑冻结的权威验收命令并
+核对数字，不得只读 worker 报告；复验发现 finding 或验收偏差时，该交付面自动升级
+为边界并补派 combined reviewer。
+
+Coordinator 独占 reviewer 拓扑。Reviewer 使用独立 Orca task/dispatch，在当前 agent
+context 内完成 assigned combined 或单轴审查；目标仓库的 `code-review` 文档可作为
+标准来源，但不得调用会启动子 agent 的 review skill。相同交付面的 targeted closure
+默认复用原 reviewer terminal 并创建新的 task/dispatch，只有范围扩大或旧上下文会干扰
+独立判断时才新建 session。
+
+Reviewer 只读固定 SHA；未经 commit 授权时审查 coordinator 已核对干净度的固定 diff。
+Spec 核对需求、AC、业务状态、权限结果和异常路径；Standards 核对工程规则、架构边界、
+安全不变量、并发/存储、发布回滚与测试可信度。
 
 Review task 的 lifecycle outcome 只表示审查是否完成：报告完整送达时发送
 `outcome=succeeded`，即使 verdict 是 `blocked`；审查无法完成或证据无法交付时才发送
 `outcome=failed`。报告另列 `verdict=pass|blocked|inconclusive`。原始 review task 不作
-下游稳定依赖；coordinator gate 只在最终 verdict pass 且独立复验闭环后 resolve。
+下游稳定依赖；acceptance gate 只在最终 verdict pass 且独立复验闭环后 resolve。
 两轴结论不得多数表决或互相抵消。任一带审查对象、`file:line`/可复现实验、影响和
 最小修复的可信 blocker，必须修复或由 coordinator 用反证逐项驳回。
 
 ## Repair、收口与 Effort
 
-- 首轮 finding 后派新的 repair task。复审默认只覆盖 finding、受影响调用链、回归
-  矩阵和修复可能引入的至少一个反例；审查对象变化后不得沿用旧 SHA 结论。
-- 常规/边界任务若 repair 未扩大范围且 targeted 复审证据完整，targeted 本身即为
-  closure；只有跨模块、公共契约变化或仍有残余风险时，才追加至多一次 final combined
-  sweep。高风险任务的最终 closure 必须在完整最终 baseline diff 上再做一次并行双审，
-  不能只看最后一笔补丁；不要在每次小修后重复完整双审。
-- 默认迭代预算是“实现 → 首轮审查 → 一次 repair → final closure”。先按根因与安全
-  不变量合并多 reviewer 的重复 finding；第二个独立 HIGH 或同一边界第二次返工只触发
-  重新路由。已有证据仍留下多个合理假设，或需要跨模块竞态、凭据代际/回滚分析时，
-  Codex repair 才升到 `gpt-5.6-sol` + `xhigh`；否则保持手册中的最低充分档位。
+- 首轮 finding 后派新的 repair task，默认复用原实现 terminal。复审默认只覆盖
+  finding、受影响调用链、回归矩阵和修复可能引入的至少一个反例；审查对象变化后
+  不得沿用旧 SHA 结论。
+- 常规任务 repair 后由 coordinator targeted 复验，不新建 reviewer。边界任务若 repair
+  未扩大范围且原 reviewer 的 targeted 复审证据完整，targeted 本身即为 closure；只有
+  跨模块、公共契约变化或仍有残余风险时，才追加至多一次 final combined sweep。高风险
+  任务的最终 closure 必须在完整最终 baseline diff 上再做一次并行双审，不能只看最后
+  一笔补丁；复用原 reviewer terminals，不在每次小修后重复完整双审。
+- 默认迭代预算是“实现 → 适用的首轮审查 → 至多一次 repair → targeted closure”；
+  常规任务省略独立首轮审查，完整 final sweep 只在上条触发条件成立时追加。先按
+  根因与安全不变量合并多 reviewer 的重复 finding；第二个独立 HIGH 或同一边界第二次
+  返工只触发重新路由。已有证据仍留下多个合理假设，或需要跨模块竞态、凭据代际/
+  回滚分析时，Codex repair 才升到 `gpt-5.6-sol` + `xhigh`；否则保持手册中的最低充分
+  档位。
 - Effort 必须在 terminal 启动时配置并核对实际生效值；`dispatch` 不负责切换 effort。
-  在 work order、启动回执证据和报告记录模型、effort 与升级理由。需要 `max`/`ultra`
-  或 Kimi `max` 时按 worker 手册触发用户裁决，不得把高档位设为全局默认。
+  在 work order、启动回执证据和报告记录模型、effort 与升级理由。需要 Codex `max` 或
+  Kimi `max` 时按 worker 手册触发用户裁决，不得把高档位设为全局默认。
 - 第三轮仍未闭环，或修复开始反复改变状态模型/接口语义时，触发
   🔴 CHECKPOINT · 🛑 STOP：停止增量补丁，重新设计状态模型或接口后再建新工单。
 
